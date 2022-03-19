@@ -192,7 +192,7 @@ workflows:
     jobs:
       - application-build
       - application-create-image:
-        requires: 
+          requires: 
             - application-build
       - application-deploy:
           requires: 

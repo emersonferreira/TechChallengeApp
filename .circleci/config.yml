@@ -24,10 +24,18 @@ jobs:
     steps:
       - checkout
 
+      # Build the application container image
       - run:
           name: Build Image
           command: |
             docker build . -t $(echo $DOCKER_REPO)/techchallengeapp:latest
+
+      # Push the application image to docker registry
+      - run:
+          name: Push Image
+          command: |
+            echo "$DOCKER_PASS" | docker login $DOCKER_REPO --username $DOCKER_USER --password-stdin
+            docker push $(echo $DOCKER_REPO)/techchallengeapp:latest
 
   # Creating the terraform plan block to demostrate all the actions terraform will do on cloud environment
   terraform-plan-apply:

@@ -87,166 +87,52 @@ jobs:
           paths:
             - .
 
-      # Publish the k8s files through CircleCi
+      # Publish the k8s files throught CircleCi
       - store_artifacts:
           path: terraform/output
   
+  # Deploy the docker image to AKS
   application-deploy:
-    working_directory: /go/src/github.com/servian/TechChallengeApp
-    resource_class: medium
-    docker:
-      - image: circleci/golang:latest
-
+    machine: true
     steps:
       - checkout
+      # Attach the workspace to get the files changed during the other steps
+      - attach_workspace:
+          at: .
+      - run:
+          # Install the az cli to connect to Azure account
+          name: Install Az-Cli
+          command: |
+            sudo apt-get update
+            sudo apt-get install ca-certificates curl apt-transport-https lsb-release gnupg
+            curl -sL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/microsoft.gpg > /dev/null
+            AZ_REPO=$(lsb_release -cs) && echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $AZ_REPO main" | sudo tee /etc/apt/sources.list.d/azure-cli.list
+            sudo apt-get update && sudo apt-get install azure-cli
 
       - run:
-          name: Setup
+          # Install the kubectl to perform kubernetes commands
+          name: Install Kubectl
           command: |
-            go get -v -t -d ./...
-            go get github.com/GeertJohan/go.rice/rice
-            mkdir output
-            go build -ldflags="-s -w" -a -v -o TechChallengeApp .
-            ls
-            ./TechChallengeApp --version | sed -e 's/TechChallengeApp version /v./' > versionfile
-
-
-      - run: 
-          name: Build for linux
-          environment:
-            GOOS: linux
-            GOARCH: amd64
-          command: |
-            if [ -d "dist" ]; then
-              rm -rf dist
-            fi
-            
-            mkdir -p dist
-            
-            go build -ldflags="-s -w" -a -v -o TechChallengeApp .
-
-            pushd ui
-            rice append --exec ../TechChallengeApp
-            popd
-
-            cp TechChallengeApp dist/
-            cp conf.toml dist/
-            
-            rm TechChallengeApp
-
-            export version=$(cat versionfile)
-            
-            zip -r "output/TechChallengeApp_${version}_linux64.zip" dist/*
-
-      # build for macos
-      - run: 
-          name: Build for macOS
-          environment:
-            GOOS: darwin
-            GOARCH: amd64
-          command: |
-            if [ -d "dist" ]; then
-              rm -rf dist
-            fi
-            
-            mkdir -p dist
-            
-            go build -ldflags="-s -w" -a -v -o TechChallengeApp .
-
-            pushd ui
-            rice append --exec ../TechChallengeApp
-            popd
-
-            cp TechChallengeApp dist/
-            cp conf.toml dist/
-
-            rm TechChallengeApp
-
-            export version=$(cat versionfile)
-
-            zip -r "output/TechChallengeApp_${version}_darwin.zip" dist/*
-
-      # build windows 64 bit
-      - run: 
-          name: Build Windows 64bit
-          environment:
-            GOOS: windows
-            GOARCH: amd64
-          command: | 
-            # cross compile to windows in linux requires a few extra bits
-            # this gets around permission issues
-            sudo chmod -R 0777 /usr/local/go/
-            go get github.com/inconshreveable/mousetrap
-            if [ -d "dist" ]; then
-              rm -rf dist
-            fi
-            
-            mkdir -p dist
-            
-            go build -ldflags="-s -w" -a -v -o TechChallengeApp.exe .
-
-            pushd ui
-            rice append --exec ../TechChallengeApp.exe
-            popd
-
-            cp TechChallengeApp.exe dist/
-            cp conf.toml dist/
-
-            rm TechChallengeApp.exe
-
-            export version=$(cat versionfile)
-
-            zip -r "output/TechChallengeApp_${version}_win64.zip" dist/*
-
-      #build windows 32 bit
-      - run: 
-          name: Build Windows 32bit
-          environment:
-            GOOS: windows
-            GOARCH: 386
-          command: |
-            if [ -d "dist" ]; then
-              rm -rf dist
-            fi
-            
-            mkdir -p dist
-            
-            go build -ldflags="-s -w" -a -v -o TechChallengeApp.exe .
-
-            pushd ui
-            rice append --exec ../TechChallengeApp.exe
-            popd
-
-            cp TechChallengeApp.exe dist/
-            cp conf.toml dist/
-
-            rm TechChallengeApp.exe
-
-            export version=$(cat versionfile)
-
-            zip -r "output/TechChallengeApp_${version}_win32.zip" dist/*
+            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+            sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+            kubectl version --client
 
       - run:
-          name: Release if new version
+          # use the k8s files to deploy the application to AKS
+          name: Deploy application to AKS
           command: |
-            export version=$(cat versionfile)
-            echo $version
-            export tagvalue=$(git tag | grep ${version})
-            export prerelease=$(echo ${version} | grep 'pre-release')
-            if [ -z "${tagvalue}" ]; then
-              go get github.com/tcnksm/ghr
-
-              if [ -z "${prerelease}" ]; then
-                echo "No pre-release in version, creating release"
-                ghr -u servian ${version} output
-              else
-                echo "Found pre-release in version, creating pre-release"
-                ghr -u servian -prerelease ${version} output
-              fi
-            fi
-
-      - store_artifacts:
-          path: output
+            # Connect to azure account
+            az login --service-principal --tenant $AZURE_SP_TENANT -u $AZURE_SP -p "$AZURE_SP_PASSWORD"
+            az account set --subscription $ARM_SUBSCRIPTION_ID
+            
+            # Get AKS the Kubernetes credentials 
+            az aks get-credentials --name $AZURE_AKS_NAME --resource-group $AZURE_RG_NAME
+            
+            # Navigate to terraform folder and execute the kubernetes commands
+            cd terraform
+            kubectl apply -f servian-dp.yaml
+            kubectl apply -f servian-sv.yaml
+            kubectl apply -f servian-ing.yaml
   
   # Creating the terraform pna destroy block to demistrate what terraform will do on cloud environment
   terraform-plan-destroy:

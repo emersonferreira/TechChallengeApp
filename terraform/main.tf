@@ -28,34 +28,28 @@ resource "azurerm_resource_group" "akc-rg" {
   location = "${var.resource_group_location}"
 }
 
-#an attempt to keep the aci container group name (and dns label) somewhat unique
-resource "random_integer" "random_int" {
-  min = 100
-  max = 999
-}
-
 resource azurerm_network_security_group "aks_advanced_network" {
-  name                = "akc-${random_integer.random_int.result}-nsg"
+  name                = "akc-${var.fix_number}-nsg"
   location            = "${var.resource_group_location}"
   resource_group_name = "${azurerm_resource_group.akc-rg.name}"
 }
 
 resource "azurerm_virtual_network" "aks_advanced_network" {
-  name                = "akc-${random_integer.random_int.result}-vnet"
+  name                = "akc-${var.fix_number}-vnet"
   location            = "${var.resource_group_location}"
   resource_group_name = "${azurerm_resource_group.akc-rg.name}"
   address_space       = ["10.1.0.0/16"]
 }
 
 resource "azurerm_subnet" "aks_subnet" {
-  name                      = "akc-aks-${random_integer.random_int.result}-subnet"
+  name                      = "akc-aks-${var.fix_number}-subnet"
   resource_group_name       = "${azurerm_resource_group.akc-rg.name}"
   address_prefixes          = "${var.address_prefixes_aks}"
   virtual_network_name      = "${azurerm_virtual_network.aks_advanced_network.name}"
 }
 
 resource "azurerm_subnet" "postgresql_subnet" {
-  name                      = "akc-db-${random_integer.random_int.result}-subnet"
+  name                      = "akc-db-${var.fix_number}-subnet"
   resource_group_name       = "${azurerm_resource_group.akc-rg.name}"
   address_prefixes          = "${var.address_prefixes_pgsql}"
   virtual_network_name      = "${azurerm_virtual_network.aks_advanced_network.name}"
@@ -64,7 +58,7 @@ resource "azurerm_subnet" "postgresql_subnet" {
 resource "azurerm_kubernetes_cluster" "aks_container" {
   name       = "${var.aks-name}"
   location   = "${var.resource_group_location}"
-  dns_prefix = "akc-${random_integer.random_int.result}"
+  dns_prefix = "akc-${var.fix_number}"
 
   resource_group_name = "${azurerm_resource_group.akc-rg.name}"
 
@@ -91,7 +85,7 @@ resource "azurerm_kubernetes_cluster" "aks_container" {
 }
 
 resource "azurerm_container_registry" "acr" {
-  name                = "${var.aks_acr_name}${random_integer.random_int.result}"
+  name                = "${var.aks_acr_name}${var.fix_number}"
   resource_group_name = "${azurerm_resource_group.akc-rg.name}"
   location            = "${var.resource_group_location}"
   sku                 = "Standard"

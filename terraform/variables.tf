@@ -109,3 +109,7 @@ variable "pgsql_database_sku_name" {
 variable "aks_acr_name" {
   type        = string
 }
+
+variable "fix_number" {
+  type        = number
+}

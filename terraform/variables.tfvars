@@ -29,3 +29,5 @@ default_node_pool_vm_size = "Standard_DS2_v2"
 
 pgsql_database_name = "postgresql-servian"
 pgsql_database_sku_name = "B_Gen5_2"
+
+fix_number = 19032022

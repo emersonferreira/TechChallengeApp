@@ -19,9 +19,6 @@ spec:
         app: servian-backend
     spec:
       initContainers:
-      - name: init-application-db
-        image: <reponame>/techchallengeapp:latest
-        command: [updatedb]
       - env:
         - name: VTT_DBUSER
           value: <dbuser>
@@ -29,6 +26,9 @@ spec:
           value: <dbpass>
         - name: VTT_DBHOST
           value: <dbhost>
+        name: init-application-db
+        image: <reponame>/techchallengeapp:latest
+        command: [updatedb]
       containers:
       - env:
         - name: VTT_DBUSER

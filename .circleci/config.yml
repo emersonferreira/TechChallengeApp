@@ -72,7 +72,7 @@ jobs:
             
             # Copy the k8s files and replace some field with terraform outputs
             cp ../k8s/*.yaml .
-            sed -i 's/<dbuser>/'"$(terraform output --raw pgsql_administrator_login)"'/g' servian-dp.yaml
+            sed -i 's/<dbuser>/'"$(terraform output --raw pgsql_administrator_login)"'@'"$(terraform output --raw pgsql_name)"'/g' servian-dp.yaml
             sed -i 's/<dbpass>/'"$(terraform output --raw pgsql_administrator_login_password)"'/g' servian-dp.yaml
             sed -i 's/<dbhost>/'"$(terraform output --raw pgsql_name)"'.postgres.database.azure.com/g' servian-dp.yaml
             sed -i 's/<reponame>/'"$DOCKER_REPO"'/g' servian-dp.yaml

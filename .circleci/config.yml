@@ -49,14 +49,8 @@ jobs:
           command: |
             cd terraform
             terraform init -input=false
-            terraform plan -out tfapply -var-file variables.tfvars
+            terraform plan -var-file variables.tfvars
       
-      # Using the persit workspace to get the terraform tfstate and tfapply file on others steps
-      - persist_to_workspace:
-          root: .
-          paths:
-            - .
-
   # Creating the terraform apply block to create the infrastructure on Azure
   terraform-apply:
     docker:
@@ -68,7 +62,7 @@ jobs:
           name: terraform
           command: |
             cd terraform
-            terraform apply -auto-approve tfapply
+            terraform apply -auto-approve
             
             # Copy the k8s files and replace some field with terraform outputs
             cp ../k8s/*.yaml .
@@ -145,13 +139,7 @@ jobs:
           name: terraform create destroy plan
           command: |
             cd terraform
-            terraform plan -destroy -out tfdestroy -var-file variables.tfvars
-
-      # Using the persit workspace to get the terraform tfstate and tfapply file on others steps
-      - persist_to_workspace:
-          root: .
-          paths:
-            - .
+            terraform plan -destroy -var-file variables.tfvars
 
   # Creating the terraform apply destroy block to destroy the infrastructure on Azure
   terraform-destroy:
@@ -164,7 +152,7 @@ jobs:
           name: terraform destroy
           command: |
             cd terraform
-            terraform apply -auto-approve tfdestroy
+            terraform apply -auto-approve
           
 workflows:
   version: 2

@@ -28,7 +28,7 @@ spec:
           value: <dbhost>
         name: init-application-db
         image: <reponame>/techchallengeapp:latest
-        command: [updatedb]
+        args: ["updatedb"]
       containers:
       - env:
         - name: VTT_DBUSER
@@ -38,7 +38,7 @@ spec:
         - name: VTT_DBHOST
           value: <dbhost>
         image: <reponame>/techchallengeapp:latest
-        command: [serve]
+        args: ["serve"]
         imagePullPolicy: IfNotPresent
         name: servian-backend-pod
         ports:

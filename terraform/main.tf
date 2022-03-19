@@ -5,6 +5,13 @@ terraform {
       version = "=2.46.0"
     }
   }
+
+  backend "azurerm" {
+        resource_group_name  = "servian"
+        storage_account_name = "strservian"
+        container_name       = "tfstate"
+        key                  = "servian-terraform.tfstate"
+    }
 }
 
 # Configure the Microsoft Azure Provider

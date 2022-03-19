@@ -191,16 +191,9 @@ workflows:
   build_test_deploy:
     jobs:
       - application-build
-
       - application-create-image:
         requires: 
             - application-build
-          filters:
-            branches:
-              only: master
-            tags:
-              ignore: /.*/
-              
       - application-deploy:
           requires: 
             - application-create-image

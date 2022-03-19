@@ -3,8 +3,9 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
 jobs:
-  build:
+  application-build:
     working_directory: /go/src/github.com/servian/TechChallengeApp
+    resource_class: medium
     docker:
       - image: circleci/golang:latest
 
@@ -16,8 +17,21 @@ jobs:
       - run: go build -v
       - run: go test -v -race -cover ./...
 
-  deploy:
+  # Creating a docker image from application
+  application-create-image:   
+    machine: true
+    resource_class: medium
+    steps:
+      - checkout
+
+      - run:
+          name: Build Image
+          command: |
+            docker build . -t $(echo $DOCKER_REPO)/techchallengeapp:latest
+
+  application-deploy:
     working_directory: /go/src/github.com/servian/TechChallengeApp
+    resource_class: medium
     docker:
       - image: circleci/golang:latest
 
@@ -176,10 +190,18 @@ workflows:
   version: 2
   build_test_deploy:
     jobs:
-      - build
-      - deploy:
+      - application-build
+      - application-create-image:
+        requires: 
+            - application-build
+          filters:
+            branches:
+              only: master
+            tags:
+              ignore: /.*/
+      - application-deploy:
           requires: 
-            - build
+            - application-create-image
           filters:
             branches:
               only: master

@@ -29,6 +29,45 @@ jobs:
           command: |
             docker build . -t $(echo $DOCKER_REPO)/techchallengeapp:latest
 
+  # Creating the terraform plan block to demostrate all the actions terraform will do on cloud environment
+  terraform-plan-apply:
+    working_directory: /tmp/project
+    docker:
+      - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
+    steps:
+      - checkout
+      - run:
+          name: terraform init & plan
+          command: |
+            cd terraform
+            terraform init -input=false
+            terraform plan -out tfapply -var-file variables.tfvars
+      
+      # Using the persit workspace to get the terraform tfstate and tfapply file on others steps
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .
+
+  # Creating the terraform apply block to create the infrastructure on Azure
+  terraform-apply:
+    docker:
+      - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: terraform
+          command: |
+            cd terraform
+            terraform apply -auto-approve tfapply
+
+      # Using the persit workspace to get the terraform tfstate and tfapply file on others steps
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .
+  
   application-deploy:
     working_directory: /go/src/github.com/servian/TechChallengeApp
     resource_class: medium
@@ -185,15 +224,58 @@ jobs:
 
       - store_artifacts:
           path: output
+  
+  # Creating the terraform pna destroy block to demistrate what terraform will do on cloud environment
+  terraform-plan-destroy:
+    docker:
+      - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: terraform create destroy plan
+          command: |
+            cd terraform
+            terraform plan -destroy -out tfdestroy -var-file variables.tfvars
+
+      # Using the persit workspace to get the terraform tfstate and tfapply file on others steps
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .
+
+  # Creating the terraform apply destroy block to destroy the infrastructure on Azure
+  terraform-destroy:
+    docker:
+      - image: docker.mirror.hashicorp.services/hashicorp/terraform:light
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: terraform destroy
+          command: |
+            cd terraform
+            terraform apply -auto-approve tfdestroy
           
 workflows:
   version: 2
   build_test_deploy:
     jobs:
       - application-build
+      - terraform-plan-apply:
+          requires:
+            - application-build
+      # Block to wait until someone approve the next steps
+      - terraform-hold-apply:
+          type: approval
+          requires:
+            - terraform-plan-apply
+      - terraform-apply:
+          requires:
+            - terraform-hold-apply
       - application-create-image:
           requires: 
-            - application-build
+            - terraform-apply
       - application-deploy:
           requires: 
             - application-create-image
@@ -202,3 +284,14 @@ workflows:
               only: master
             tags:
               ignore: /.*/
+      - terraform-plan-destroy:
+          requires:
+            - application-deploy
+      # Block to wait until someone approve the next steps
+      - terraform-hold-destroy:
+          type: approval
+          requires:
+            - terraform-plan-destroy
+      - terraform-destroy:
+          requires:
+            - terraform-hold-destroy

@@ -1,0 +1,14 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: servian-backend-ing
+  namespace: default
+spec:
+  rules:
+  - host: servian.demo.com.br
+    http:
+      paths:
+      - backend:
+          serviceName: servian-backend-svc
+          servicePort: 80
+        path: /

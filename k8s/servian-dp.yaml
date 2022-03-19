@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: csd-backend-dp
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: servian-backend
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: servian-backend
+    spec:
+      initContainers:
+      - name: init-application-db
+        image: <reponame>/techchallengeapp:latest
+        command: [updatedb]
+      - env:
+        - name: VTT_DBUSER
+          value: <dbuser>
+        - name: VTT_DBPASSWORD
+          value: <dbpass>
+        - name: VTT_DBHOST
+          value: <dbhost>
+      containers:
+      - env:
+        - name: VTT_DBUSER
+          value: <dbuser>
+        - name: VTT_DBPASSWORD
+          value: <dbpass>
+        - name: VTT_DBHOST
+          value: <dbhost>
+        image: <reponame>/techchallengeapp:latest
+        command: [serve]
+        imagePullPolicy: IfNotPresent
+        name: servian-backend-pod
+        ports:
+        - containerPort: 3000
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthcheck
+            port: 3000
+            scheme: HTTP
+          periodSeconds: 3
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30

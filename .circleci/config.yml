@@ -69,12 +69,27 @@ jobs:
           command: |
             cd terraform
             terraform apply -auto-approve tfapply
+            
+            # Copy the k8s files and replace some field with terraform outputs
+            cp ../k8s/*.yaml .
+            sed -i 's/<dbuser>/'"$(terraform output --raw pgsql_administrator_login)"'/g' servian-dp.yaml
+            sed -i 's/<dbpass>/'"$(terraform output --raw pgsql_administrator_login_password)"'/g' servian-dp.yaml
+            sed -i 's/<dbhost>/'"$(terraform output --raw pgsql_name)"'.postgres.database.azure.com/g' servian-dp.yaml
+            sed -i 's/<reponame>/'"$DOCKER_REPO"'/g' servian-dp.yaml
+
+            # Create one output folder and pushih the yaml files on CircleCi
+            mkdir output
+            cp *.yaml output
 
       # Using the persit workspace to get the terraform tfstate and tfapply file on others steps
       - persist_to_workspace:
           root: .
           paths:
             - .
+
+      # Publish the k8s files through CircleCi
+      - store_artifacts:
+          path: terraform/output
   
   application-deploy:
     working_directory: /go/src/github.com/servian/TechChallengeApp
